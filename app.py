@@ -4,13 +4,25 @@ import numpy as np
 import tempfile
 from ultralytics import YOLO
 
+import os
+import urllib.request
+from ultralytics import YOLO
+
 # ================= CONFIG =================
 st.set_page_config(page_title="Person Detection", layout="wide")
 
-# ================= LOAD MODEL (CACHE) =================
+MODEL_PATH = "person-x-150.pt"
+MODEL_URL = "https://github.com/mirteldisa01/Person-Detection-NMSAI/releases/download/v1/person-x-150.pt"
+
 @st.cache_resource
 def load_model():
-    return YOLO("person-x-150.pt")  # model harus ada di repo
+    if not os.path.exists(MODEL_PATH):
+        urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+    return YOLO(MODEL_PATH)
+
+
+
+
 
 model = load_model()
 
