@@ -84,7 +84,7 @@ def process_video(cap):
     return best_frame_per_bucket, first_frame_backup, person_detected
 
 # ================= UI =================
-st.title("🚨 Person Detection Video App")
+st.title("🚨 Person Detection")
 
 video_url = st.text_input(
     "Masukkan URL Video (.mp4 / .webm)",
