@@ -28,9 +28,20 @@ model = load_model()
 # ================= VIDEO PROCESS =================
 def process_video(cap):
     best_frame_per_bucket = {}
-    first_frame_backup = None
     person_detected = False
     last_bucket = -1
+
+    # ===== FORCE ambil frame pertama =====
+    first_frame_backup = None
+    ret, first = cap.read()
+    if ret:
+        first_frame_backup = first.copy()
+    else:
+        cap.release()
+        return best_frame_per_bucket, None, False
+
+    # reset posisi video ke awal
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -39,9 +50,6 @@ def process_video(cap):
 
         ms = cap.get(cv2.CAP_PROP_POS_MSEC)
         bucket = int(ms // (INTERVAL_SEC * 1000))
-
-        if first_frame_backup is None:
-            first_frame_backup = frame.copy()
 
         if bucket == last_bucket:
             continue
