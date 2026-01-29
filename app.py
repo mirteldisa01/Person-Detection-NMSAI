@@ -113,5 +113,10 @@ if video_url and st.button("Process Video"):
                 for col, (_, data) in zip(cols, frames):
                     frame = cv2.cvtColor(data["frame"], cv2.COLOR_BGR2RGB)
                     col.image(frame, use_container_width=True)
+
             else:
-                st.info("Tidak ada frame dengan person terdeteksi.")
+                st.info("Tidak ada person terdeteksi. Menampilkan 1 frame video.")
+
+                if first_frame is not None:
+                    frame = cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB)
+                    st.image(frame, caption="Frame pertama (backup)", use_container_width=True)
