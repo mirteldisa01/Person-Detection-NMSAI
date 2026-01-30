@@ -5,6 +5,8 @@ import urllib.request
 from ultralytics import YOLO
 
 # ================= CONFIG =================
+st.error("APP VERSION: FIX CLEAR FRAME | 30-01-2026")
+
 st.set_page_config(page_title="Person Detection", layout="wide")
 
 # ===== BACKEND PARAMETERS =====
