@@ -5,6 +5,7 @@ import urllib.request
 from ultralytics import YOLO
 
 # ================= CONFIG =================
+
 st.set_page_config(page_title="Person Detection", layout="wide")
 
 # ===== BACKEND PARAMETERS =====
@@ -24,11 +25,6 @@ def load_model():
     return YOLO(MODEL_PATH)
 
 model = load_model()
-
-# ================= RESIZE HELPER =================
-def resize_half(frame):
-    h, w = frame.shape[:2]
-    return cv2.resize(frame, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
 
 # ================= VIDEO PROCESS =================
 def process_video(cap):
@@ -133,14 +129,20 @@ if video_url and st.button("Process Video"):
 
                 cols = st.columns(len(frames))
                 for col, (_, data) in zip(cols, frames):
-                    frame = resize_half(data["frame"])
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    col.image(frame)
+                    frame = cv2.cvtColor(data["frame"], cv2.COLOR_BGR2RGB)
+                    col.image(frame, use_container_width=True)
 
             else:
                 st.info("No person detected. Displaying one video frame.")
 
                 if first_frame is not None:
-                    frame = resize_half(first_frame)
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    st.image(frame, caption="First frame (backup)")
+                    frame = cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB)
+
+                    left, center, right = st.columns([35, 30, 35])
+
+                    with center:
+                        st.image(
+                            frame,
+                            caption="First frame (backup)",
+                            use_container_width=True
+                        )
