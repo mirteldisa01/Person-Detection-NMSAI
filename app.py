@@ -133,16 +133,16 @@ if video_url and st.button("Process Video"):
                     col.image(frame, use_container_width=True)
 
             else:
-                st.info("No person detected. Displaying one video frame.")
+                st.info("Final Status: No person detected")
 
                 if first_frame is not None:
                     frame = cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB)
 
-                    left, center, right = st.columns([35, 30, 35])
+                    left, center, right = st.columns([30, 40, 30])
 
                     with center:
                         st.image(
                             frame,
-                            caption="First frame (backup)",
+                            #caption="First frame (backup)",
                             use_container_width=True
                         )
