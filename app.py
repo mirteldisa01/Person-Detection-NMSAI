@@ -25,6 +25,11 @@ def load_model():
 
 model = load_model()
 
+# ================= RESIZE HELPER =================
+def resize_half(frame):
+    h, w = frame.shape[:2]
+    return cv2.resize(frame, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
+
 # ================= VIDEO PROCESS =================
 def process_video(cap):
     best_frame_per_bucket = {}
@@ -128,16 +133,14 @@ if video_url and st.button("Process Video"):
 
                 cols = st.columns(len(frames))
                 for col, (_, data) in zip(cols, frames):
-                    frame = cv2.cvtColor(data["frame"], cv2.COLOR_BGR2RGB)
-                    col.image(frame, use_container_width=True)
+                    frame = resize_half(data["frame"])
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    col.image(frame)
 
             else:
                 st.info("No person detected. Displaying one video frame.")
 
                 if first_frame is not None:
-                    frame = cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB)
-                    st.image(
-                        frame,
-                        caption="First frame (backup)",
-                        use_container_width=True,
-                    )
+                    frame = resize_half(first_frame)
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    st.image(frame, caption="First frame (backup)")
