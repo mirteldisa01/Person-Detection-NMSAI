@@ -7,7 +7,7 @@ from ultralytics import YOLO
 # ================= CONFIG =================
 st.set_page_config(page_title="Person Detection", layout="wide")
 
-# ===== BACKEND PARAMETERS (FIXED) =====
+# ===== BACKEND PARAMETERS =====
 CONF_THRESHOLD = 0.5
 MAX_SHOWN = 3
 INTERVAL_SEC = 0.01
@@ -31,16 +31,15 @@ def process_video(cap):
     person_detected = False
     last_bucket = -1
 
-    # ===== FORCE ambil frame pertama =====
-    first_frame_backup = None
-    ret, first = cap.read()
-    if ret:
-        first_frame_backup = first.copy()
-    else:
+    # ===== Ambil frame pertama sebagai backup =====
+    ret, first_frame = cap.read()
+    if not ret:
         cap.release()
-        return best_frame_per_bucket, None, False
+        return {}, None, False
 
-    # reset posisi video ke awal
+    first_frame_backup = first_frame.copy()
+
+    # Reset video ke awal
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
     while cap.isOpened():
@@ -56,16 +55,22 @@ def process_video(cap):
         last_bucket = bucket
 
         results = model(frame, conf=CONF_THRESHOLD, verbose=False)[0]
+
         max_conf = 0.0
+        found_person_in_frame = False
 
         if results.boxes is not None:
             for box in results.boxes:
                 cls = int(box.cls)
                 conf = float(box.conf)
 
+                # ==== FILTER PERSON ONLY ====
                 if model.names[cls].lower() != "person":
                     continue
+                if conf < CONF_THRESHOLD:
+                    continue
 
+                found_person_in_frame = True
                 person_detected = True
                 max_conf = max(max_conf, conf)
 
@@ -81,8 +86,12 @@ def process_video(cap):
                     2,
                 )
 
-        if max_conf > 0:
-            if bucket not in best_frame_per_bucket or max_conf > best_frame_per_bucket[bucket]["conf"]:
+        # ===== SIMPAN FRAME HANYA JIKA ADA PERSON =====
+        if found_person_in_frame:
+            if (
+                bucket not in best_frame_per_bucket
+                or max_conf > best_frame_per_bucket[bucket]["conf"]
+            ):
                 best_frame_per_bucket[bucket] = {
                     "conf": max_conf,
                     "frame": frame.copy(),
@@ -104,27 +113,31 @@ if video_url and st.button("Process Video"):
         cap = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
 
         if not cap.isOpened():
-            st.error("Video tidak dapat dibuka. Pastikan URL valid & publik.")
+            st.error("The video cannot be opened. Please make sure the URL is valid and publicly accessible.")
         else:
             best_frames, first_frame, person_detected = process_video(cap)
 
             status = "PERSON DETECTED" if person_detected else "CLEAR"
             st.subheader(f"Final Status: {status}")
 
-            frames = list(best_frames.items())
-            frames.sort(key=lambda x: x[1]["conf"], reverse=True)
-            frames = frames[:MAX_SHOWN]
-            frames.sort(key=lambda x: x[0])
+            if person_detected and best_frames:
+                frames = list(best_frames.items())
+                frames.sort(key=lambda x: x[1]["conf"], reverse=True)
+                frames = frames[:MAX_SHOWN]
+                frames.sort(key=lambda x: x[0])
 
-            if frames:
                 cols = st.columns(len(frames))
                 for col, (_, data) in zip(cols, frames):
                     frame = cv2.cvtColor(data["frame"], cv2.COLOR_BGR2RGB)
                     col.image(frame, use_container_width=True)
 
             else:
-                st.info("Tidak ada person terdeteksi. Menampilkan 1 frame video.")
+                st.info("No person detected. Displaying one video frame.")
 
                 if first_frame is not None:
                     frame = cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB)
-                    st.image(frame, caption="Frame pertama (backup)", use_container_width=True)
+                    st.image(
+                        frame,
+                        caption="First frame (backup)",
+                        use_container_width=True,
+                    )
