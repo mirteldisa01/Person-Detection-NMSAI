@@ -105,7 +105,7 @@ def process_video(cap):
 st.title("🚨 Person Detection")
 
 video_url = st.text_input(
-    "Masukkan URL Video (.mp4 / .webm)",
+    "Enter Video URL (.mp4 / .webm)",
     placeholder="https://example.com/video.webm"
 )
 
