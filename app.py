@@ -1,47 +1,44 @@
-import streamlit as st
+from fastapi import FastAPI
+from pydantic import BaseModel
+from ultralytics import YOLO
 import cv2
 import os
 import urllib.request
-from ultralytics import YOLO
+import base64
 
 # ================= CONFIG =================
-
-st.set_page_config(page_title="Person Detection", layout="wide")
-
-# ===== BACKEND PARAMETERS =====
 CONF_THRESHOLD = 0.5
+INTERVAL_SEC = 0.5   # ambil frame tiap 0.5 detik (lebih realistis dari 0.01)
 MAX_SHOWN = 3
-INTERVAL_SEC = 0.01
 
 MODEL_PATH = "person-x-150.pt"
 MODEL_URL = "https://github.com/mirteldisa01/Person-Detection-NMSAI/releases/download/v1/person-x-150.pt"
 
+app = FastAPI(title="Person Detection API")
+
 # ================= LOAD MODEL =================
-@st.cache_resource
 def load_model():
     if not os.path.exists(MODEL_PATH):
-        with st.spinner("Downloading model..."):
-            urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+        print("Downloading model...")
+        urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
     return YOLO(MODEL_PATH)
 
 model = load_model()
 
-# ================= VIDEO PROCESS =================
-def process_video(cap):
-    best_frame_per_bucket = {}
+# ================= REQUEST SCHEMA =================
+class VideoRequest(BaseModel):
+    video_url: str
+
+# ================= CORE PROCESS =================
+def process_video(video_url):
+    cap = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
+
+    if not cap.isOpened():
+        return False, 0.0, []
+
+    best_frames = {}
     person_detected = False
     last_bucket = -1
-
-    # ===== Ambil frame pertama sebagai backup =====
-    ret, first_frame = cap.read()
-    if not ret:
-        cap.release()
-        return {}, None, False
-
-    first_frame_backup = first_frame.copy()
-
-    # Reset video ke awal
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -58,20 +55,19 @@ def process_video(cap):
         results = model(frame, conf=CONF_THRESHOLD, verbose=False)[0]
 
         max_conf = 0.0
-        found_person_in_frame = False
+        found_person = False
 
         if results.boxes is not None:
             for box in results.boxes:
                 cls = int(box.cls)
                 conf = float(box.conf)
 
-                # ==== FILTER PERSON ONLY ====
                 if model.names[cls].lower() != "person":
                     continue
                 if conf < CONF_THRESHOLD:
                     continue
 
-                found_person_in_frame = True
+                found_person = True
                 person_detected = True
                 max_conf = max(max_conf, conf)
 
@@ -87,62 +83,44 @@ def process_video(cap):
                     2,
                 )
 
-        # ===== SIMPAN FRAME HANYA JIKA ADA PERSON =====
-        if found_person_in_frame:
+        if found_person:
             if (
-                bucket not in best_frame_per_bucket
-                or max_conf > best_frame_per_bucket[bucket]["conf"]
+                bucket not in best_frames
+                or max_conf > best_frames[bucket]["conf"]
             ):
-                best_frame_per_bucket[bucket] = {
+                best_frames[bucket] = {
                     "conf": max_conf,
                     "frame": frame.copy(),
                 }
 
     cap.release()
-    return best_frame_per_bucket, first_frame_backup, person_detected
 
-# ================= UI =================
-st.title("🚨 Person Detection")
+    # ===== Ambil TOP N terbaik =====
+    frames_sorted = list(best_frames.items())
+    frames_sorted.sort(key=lambda x: x[1]["conf"], reverse=True)
+    frames_sorted = frames_sorted[:MAX_SHOWN]
 
-video_url = st.text_input(
-    "Enter Video URL (.mp4 / .webm)",
-    placeholder="https://example.com/video.webm"
-)
+    image_list = []
+    max_conf_global = 0.0
 
-if video_url and st.button("Process Video"):
-    with st.spinner("Processing video..."):
-        cap = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
+    for _, data in frames_sorted:
+        max_conf_global = max(max_conf_global, data["conf"])
+        _, buffer = cv2.imencode(".jpg", data["frame"])
+        image_base64 = base64.b64encode(buffer).decode("utf-8")
+        image_list.append(image_base64)
 
-        if not cap.isOpened():
-            st.error("The video cannot be opened. Please make sure the URL is valid and publicly accessible.")
-        else:
-            best_frames, first_frame, person_detected = process_video(cap)
+    return person_detected, max_conf_global, image_list
 
-            status = "PERSON DETECTED" if person_detected else "CLEAR"
-            st.subheader(f"Final Status: {status}")
 
-            if person_detected and best_frames:
-                frames = list(best_frames.items())
-                frames.sort(key=lambda x: x[1]["conf"], reverse=True)
-                frames = frames[:MAX_SHOWN]
-                frames.sort(key=lambda x: x[0])
+# ================= API ENDPOINT =================
+@app.post("/detect")
+def detect_person(data: VideoRequest):
+    detected, max_conf, images = process_video(data.video_url)
 
-                cols = st.columns(len(frames))
-                for col, (_, data) in zip(cols, frames):
-                    frame = cv2.cvtColor(data["frame"], cv2.COLOR_BGR2RGB)
-                    col.image(frame, use_container_width=True)
-
-            else:
-                st.info("Final Status: No person detected")
-
-                if first_frame is not None:
-                    frame = cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB)
-
-                    left, center, right = st.columns([30, 40, 30])
-
-                    with center:
-                        st.image(
-                            frame,
-                            #caption="First frame (backup)",
-                            use_container_width=True
-                        )
+    return {
+        "status": "PERSON DETECTED" if detected else "CLEAR",
+        "person_detected": detected,
+        "max_confidence": round(max_conf, 4),
+        "total_images": len(images),
+        "images_base64": images
+    }
