@@ -1,0 +1,7 @@
+services:
+  person-api:
+    build: .
+    container_name: person-detection-nmsai-api
+    restart: always
+    ports:
+      - "8001:8000"
