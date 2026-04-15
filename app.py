@@ -68,6 +68,8 @@ def process_video(video_url: str):
     frame_count = 0           # Total processed frames counter
     start_time = time.time()  # Processing start time
 
+    last_frame = None         # Store the last processed frame (for fallback when no detection)
+
     try:
         while cap.isOpened():
 
@@ -84,6 +86,9 @@ def process_video(video_url: str):
                 break
 
             frame_count += 1
+
+            # Save the latest frame (used only if no person is detected at all)
+            last_frame = frame.copy()
 
             # Get current timestamp in milliseconds
             ms = cap.get(cv2.CAP_PROP_POS_MSEC)
@@ -174,6 +179,28 @@ def process_video(video_url: str):
         # Convert JPEG buffer to base64 string
         image_base64 = base64.b64encode(buffer).decode("utf-8")
         image_list.append(image_base64)
+
+    # ===== ADDITION ONLY: fallback when no person detected =====
+    if not person_detected and last_frame is not None:
+        fallback_frame = last_frame.copy()
+
+        # Draw "CLEAR" text at top-left corner (red color in BGR)
+        cv2.putText(
+            fallback_frame,
+            "CLEAR",
+            (20, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.2,
+            (0, 0, 255),  # Red color (BGR format)
+            3,
+        )
+
+        # Encode fallback frame
+        _, buffer = cv2.imencode(".jpg", fallback_frame)
+        image_base64 = base64.b64encode(buffer).decode("utf-8")
+
+        # Return exactly one fallback frame
+        image_list = [image_base64]
 
     return person_detected, max_conf_global, image_list
 
