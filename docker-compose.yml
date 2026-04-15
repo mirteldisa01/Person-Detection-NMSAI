@@ -1,5 +1,5 @@
 services:
-  person-api:
+  person-detection-api:
     build: .
     container_name: person-detection-nmsai-api
     restart: always
