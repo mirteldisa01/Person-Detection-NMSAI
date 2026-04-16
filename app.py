@@ -132,15 +132,15 @@ def process_video(video_url: str):
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
                     # Draw label below bounding box
-                    cv2.putText(
-                        frame,
-                        f"Person {conf:.2f}",
-                        (x1, y2 + 20),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6,
-                        (0, 255, 0),
-                        2,
-                    )
+                    #cv2.putText(
+                    #    frame,
+                    #    f"Person {conf:.2f}",
+                    #    (x1, y2 + 20),
+                    #    cv2.FONT_HERSHEY_SIMPLEX,
+                    #    0.6,
+                    #    (0, 255, 0),
+                    #    2,
+                    #)
 
             # Store only the best frame per bucket
             # If a frame in the same second has higher confidence, replace it
